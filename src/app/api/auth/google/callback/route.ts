@@ -1,7 +1,10 @@
-import client from "@/app/lib/googleOAuth";
+import client from "@/app/lib/OAuthClient";
 import { NextResponse, NextRequest } from 'next/server'
+import jwt from 'jsonwebtoken'
+import { TokenPayload } from "google-auth-library";
+import User from "@/app/lib/models/userModel";
 
-export async function GET(req: NextRequest) {
+export const GET = async (req: NextRequest) => {
     const code = req.nextUrl.searchParams.get('code')
 
     if (!code) {
@@ -24,13 +27,34 @@ export async function GET(req: NextRequest) {
             user: {
                 name: payload?.name,
                 email: payload?.email,
-                picture: payload?.picture,
-            },
-        } 
+                picture: payload?.picture
+            } as TokenPayload,
+        }
 
-        return NextResponse.redirect('http://localhost:3000/')
+        const foundUser = await User.findOne({ email: data.user.email }).lean().exec()
+
+        if (!foundUser) {
+            await User.create({
+                email: data.user.email,
+                name: data.user.name,
+                picture: data.user.picture
+            })
+        }
+
+        const accessToken = jwt.sign(data.user, process.env.JWT_SECRET!, { expiresIn: '1h' })
+
+        const response = NextResponse.redirect('http://localhost:3000/')
+        response.cookies.set('auth_token', accessToken, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'strict',
+            path: '/',
+            maxAge: 3600
+        })
+
+        return response
 
     } catch (error) {
-        return NextResponse.json({ error: 'Token exchange failed' }, { status: 500 });
+        return NextResponse.json({ error: 'Token exchange failed ' + error }, { status: 500 });
     }
 }

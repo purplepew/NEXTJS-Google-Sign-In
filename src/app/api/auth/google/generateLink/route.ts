@@ -1,7 +1,7 @@
-import client from "@/app/lib/googleOAuth";
+import client from "@/app/lib/OAuthClient";
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export const GET = async () => {
     const url = client.generateAuthUrl({
         access_type: 'offline',
         prompt: 'consent',
@@ -10,4 +10,3 @@ export async function GET() {
 
     return NextResponse.json(url)
 }
-
